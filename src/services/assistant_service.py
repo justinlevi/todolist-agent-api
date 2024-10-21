@@ -23,6 +23,7 @@ class AssistantService:
                 todos_service.update_todo,
                 todos_service.toggle_todo,
                 todos_service.delete_todo,
+                todos_service.filter_todos,
             ],
             description="You are an intelligent assistant specialized in managing a todo list. Your primary function is to help users organize their tasks efficiently.",
             instructions=[
