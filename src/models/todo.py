@@ -11,6 +11,14 @@ class TodoCreate(BaseModel):
     tags: List[str] = []
 
 
+class TodoUpdate(BaseModel):
+    title: Optional[str] = None
+    dueDate: Optional[datetime] = None
+    weight: Optional[int] = None
+    parentId: Optional[int] = None
+    tags: Optional[List[str]] = None
+
+
 class Todo(BaseModel):
     id: int
     title: str

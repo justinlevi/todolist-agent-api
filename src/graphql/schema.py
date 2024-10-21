@@ -3,7 +3,7 @@ from strawberry.types import Info
 from typing import List, Optional
 from datetime import datetime
 from prisma import Prisma
-from src.models.todo import TodoCreate
+from src.models.todo import TodoCreate, TodoUpdate
 
 
 @strawberry.type
@@ -133,6 +133,55 @@ class Mutation:
                 return True
         except Exception as e:
             raise Exception(f"Failed to delete todo: {str(e)}")
+
+    @strawberry.mutation
+    async def update_todo(
+        self,
+        id: int,
+        title: Optional[str] = None,
+        due_date: Optional[datetime] = None,
+        weight: Optional[int] = None,
+        parent_id: Optional[int] = None,
+        tags: Optional[List[str]] = None,
+    ) -> Todo:
+        try:
+            todo_data = TodoUpdate(
+                title=title,
+                dueDate=due_date,
+                weight=weight,
+                parentId=parent_id,
+                tags=tags,
+            )
+            async with Prisma() as db:
+                todo = await db.todo.find_unique(where={"id": id})
+                if todo is None:
+                    raise Exception(f"Todo with id {id} not found")
+
+                update_data = {
+                    k: v for k, v in todo_data.dict().items() if v is not None
+                }
+                if "tags" in update_data:
+                    update_data["tags"] = ",".join(update_data["tags"])
+
+                updated_todo = await db.todo.update(
+                    where={"id": id},
+                    data=update_data,
+                    include={"children": True},
+                )
+
+                return Todo(
+                    id=updated_todo.id,
+                    title=updated_todo.title,
+                    completed=updated_todo.completed,
+                    created_at=updated_todo.createdAt,
+                    due_date=updated_todo.dueDate,
+                    weight=updated_todo.weight,
+                    parent_id=updated_todo.parentId,
+                    children=[child.id for child in updated_todo.children],
+                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
+                )
+        except Exception as e:
+            raise Exception(f"Failed to update todo: {str(e)}")
 
 
 schema = strawberry.Schema(query=Query, mutation=Mutation)

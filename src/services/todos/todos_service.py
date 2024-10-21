@@ -1,7 +1,7 @@
 from typing import List, Optional
 from datetime import datetime
 from prisma import Prisma
-from src.models.todo import Todo, TodoCreate
+from src.models.todo import Todo, TodoCreate, TodoUpdate
 
 
 class TodosService:
@@ -152,3 +152,52 @@ class TodosService:
                 return True
         except Exception as e:
             raise Exception(f"Failed to delete todo: {str(e)}")
+
+    @staticmethod
+    async def update_todo(id: int, todo_data: TodoUpdate) -> Todo:
+        """
+        Update a todo item in the database.
+
+        This function updates an existing todo item with the given data.
+
+        Args:
+            id (int): The ID of the todo item to update.
+            todo_data (TodoUpdate): The data to update the todo item with.
+
+        Returns:
+            Todo: A Todo object representing the updated todo item.
+
+        Raises:
+            Exception: If the todo item is not found or if there's an error while updating the todo in the database.
+        """
+        try:
+            async with Prisma() as db:
+                todo = await db.todo.find_unique(where={"id": id})
+                if todo is None:
+                    raise Exception(f"Todo with id {id} not found")
+
+                update_data = {
+                    k: v for k, v in todo_data.dict().items() if v is not None
+                }
+                if "tags" in update_data:
+                    update_data["tags"] = ",".join(update_data["tags"])
+
+                updated_todo = await db.todo.update(
+                    where={"id": id},
+                    data=update_data,
+                    include={"children": True},
+                )
+
+                return Todo(
+                    id=updated_todo.id,
+                    title=updated_todo.title,
+                    completed=updated_todo.completed,
+                    created_at=updated_todo.createdAt,
+                    due_date=updated_todo.dueDate,
+                    weight=updated_todo.weight,
+                    parent_id=updated_todo.parentId,
+                    children=[child.id for child in updated_todo.children],
+                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
+                )
+        except Exception as e:
+            raise Exception(f"Failed to update todo: {str(e)}")

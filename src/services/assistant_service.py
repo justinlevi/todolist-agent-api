@@ -20,6 +20,7 @@ class AssistantService:
             tools=[
                 todos_service.get_todos,
                 todos_service.create_todo,
+                todos_service.update_todo,
                 todos_service.toggle_todo,
                 todos_service.delete_todo,
             ],
@@ -63,6 +64,7 @@ class AssistantService:
                 "If a requested action is not directly supported by the tools, explain the limitation to the user and suggest alternative approaches.",
                 "When in doubt about a user's intention, ask for clarification before performing any actions.",
                 "Maintain context throughout the conversation and refer back to previous interactions when relevant.",
+                # "Always display the todo list hierarchically, with children todos indented under their parent todos.",
             ],
             prevent_hallucinations=True,
             # reasoning=True,

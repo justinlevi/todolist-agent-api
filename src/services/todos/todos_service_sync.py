@@ -1,5 +1,6 @@
 from typing import List, Optional
 from datetime import datetime
+from pydantic import BaseModel, Field
 from sqlalchemy import (
     create_engine,
     select,
@@ -62,6 +63,7 @@ class TodosServiceSync(Toolkit):
 
         self.register(self.get_todos)
         self.register(self.create_todo)
+        self.register(self.update_todo)
         self.register(self.toggle_todo)
         self.register(self.delete_todo)
 
@@ -103,6 +105,40 @@ class TodosServiceSync(Toolkit):
             return f"Created Todo - ID: {new_todo.id}, Title: {new_todo.title}, Completed: {new_todo.completed}, Created At: {new_todo.created_at}, Due Date: {new_todo.due_date}, Weight: {new_todo.weight}, Parent ID: {new_todo.parentId}, Tags: {new_todo.tags}"
         except Exception as e:
             return f"Failed to create todo: {str(e)}"
+        finally:
+            session.close()
+
+    def update_todo(
+        self,
+        id: int,
+        title: Optional[str] = None,
+        due_date: Optional[str] = None,
+        weight: Optional[int] = None,
+        parent_id: Optional[int] = None,
+        tags: Optional[str] = None,
+    ) -> str:
+        try:
+            session = self.SessionLocal()
+            todo = session.query(Todo).filter(Todo.id == id).first()
+            if todo is None:
+                return f"Todo with id {id} not found"
+
+            if title is not None:
+                todo.title = title
+            if due_date is not None:
+                todo.dueDate = int(datetime.fromisoformat(due_date).timestamp() * 1000)
+            if weight is not None:
+                todo.weight = weight
+            if parent_id is not None:
+                todo.parentId = parent_id
+            if tags is not None:
+                todo.tags = tags
+
+            session.commit()
+            session.refresh(todo)
+            return f"Updated Todo - ID: {todo.id}, Title: {todo.title}, Completed: {todo.completed}, Created At: {todo.created_at}, Due Date: {todo.due_date}, Weight: {todo.weight}, Parent ID: {todo.parentId}, Tags: {todo.tags}"
+        except Exception as e:
+            return f"Failed to update todo: {str(e)}"
         finally:
             session.close()
 
