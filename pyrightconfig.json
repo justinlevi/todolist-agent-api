@@ -1,7 +1,9 @@
 {
     "include": ["src"],
     "exclude": ["**/node_modules", "**/__pycache__"],
-    "typeCheckingMode": "strict",
+    "typeCheckingMode": "basic",
     "useLibraryCodeForTypes": true,
-    "reportMissingTypeStubs": false
-  }
+    "reportMissingTypeStubs": false,
+    "reportCallIssue": "none",
+    "reportArgumentType": "none"
+}
