@@ -1,0 +1,105 @@
+[tool.poetry]
+name = "api"
+version = "0.1.0"
+description = "A production-grade FastAPI API designed for building chatbots"
+authors = ["Your Name <your.email@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.100.0"
+uvicorn = {version = "^0.30.0", extras = ["standard"]}
+python-dotenv = "^1.0.1"
+pydantic = "^2.0"
+sse-starlette = "^2.1.0"
+aiosqlite = "^0.20.0"
+rich = "^13.8.1"
+python-json-logger = "^2.0.7"
+httptools = "^0.6.1"
+livekit-api = "^0.7.0"
+pytz = "^2024.1"
+requests = "^2.31.0"
+numpy = "^1.26.4"
+openai = "^1.12.0"
+typing-extensions = "^4.10.0"
+slowapi = "^0.1.8"
+setuptools = "^75.1.0"
+joblib = "^1.4.2"
+alt-profanity-check = "^1.5.2"
+pandas = "^2.2.3"
+qdrant-client = "^1.12.0"
+markdown = "^3.7"
+bs4 = "^0.0.2"
+tiktoken = "^0.8.0"
+pytest-asyncio = "^0.24.0"
+poetry-plugin-export = "^1.8.0"
+phidata = "^2.5.9"
+
+[tool.poetry.dev-dependencies]
+pytest = "^8.2.0"
+pytest-cov = "^4.0.0"
+black = "^23.0.0"
+isort = "^5.13.2"
+flake8 = "^6.0.0"
+mypy = "^1.0.0"
+pre-commit = "^3.0.0"
+ipython = "^8.22.2"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+pytest-asyncio = "^0.24.0"
+pytest-mock = "^3.14.0"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+addopts = "--cov=. --cov-report=term-missing"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.coverage.run]
+source = ["."]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "pass",
+    "except ImportError:",
+]
