@@ -77,7 +77,7 @@ JAILBREAK_PHRASES = [
 ]
 
 
-def validate_input(content: str) -> bool:
+def validate_input(content: str) -> tuple[bool, str]:
     jailbreak_pattern = (
         r"\b(" + "|".join(re.escape(phrase) for phrase in JAILBREAK_PHRASES) + r")\b"
     )

@@ -12,4 +12,10 @@ model Todo {
   title     String
   completed Boolean  @default(false)
   createdAt DateTime @default(now())
+  dueDate   DateTime?
+  weight    Int      @default(1)
+  parentId  Int?
+  parent    Todo?    @relation("TodoToTodo", fields: [parentId], references: [id])
+  children  Todo[]   @relation("TodoToTodo")
+  tags      String?
 }

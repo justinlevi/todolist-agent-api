@@ -19,8 +19,8 @@ services:
       timeout: 10s
       retries: 3
 
-  qdrant:
-    image: qdrant/qdrant:v1.3.0
-    restart: on-failure
-    ports:
-      - "6335:6335"
+  # qdrant:
+  #   image: qdrant/qdrant:v1.3.0
+  #   restart: on-failure
+  #   ports:
+  #     - "6335:6335"
