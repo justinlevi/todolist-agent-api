@@ -33,6 +33,8 @@ tiktoken = "^0.8.0"
 pytest-asyncio = "^0.24.0"
 poetry-plugin-export = "^1.8.0"
 phidata = "^2.5.9"
+strawberry-graphql = {extras = ["fastapi"], version = "^0.246.2"}
+prisma = { version = "^0.15.0", extras = ["recursive-types"] }
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.2.0"
@@ -48,6 +50,7 @@ ipython = "^8.22.2"
 pytest = "^8.2.0"
 pytest-asyncio = "^0.24.0"
 pytest-mock = "^3.14.0"
+pyright = "^1.1.385"
 
 [tool.black]
 line-length = 88

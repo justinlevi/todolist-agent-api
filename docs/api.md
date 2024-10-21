@@ -70,7 +70,7 @@ def stream_chat_completion(model, messages):
         "messages": messages,
         "stream": True
     }
-    
+
     with requests.post(url, json=data, headers=headers, stream=True) as response:
         for line in response.iter_lines():
             if line:
@@ -91,17 +91,17 @@ for chunk in stream_chat_completion("default", messages):
 
 ```javascript
 async function streamChatCompletion(model, messages) {
-  const response = await fetch('http://localhost:8000/v1/chat/completions', {
-    method: 'POST',
+  const response = await fetch("http://localhost:8000/v1/chat/completions", {
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': 'beareryour_api_key_here'
+      "Content-Type": "application/json",
+      Authorization: "beareryour_api_key_here",
     },
     body: JSON.stringify({
       model,
       messages,
-      stream: true
-    })
+      stream: true,
+    }),
   });
 
   const reader = response.body.getReader();
@@ -110,13 +110,13 @@ async function streamChatCompletion(model, messages) {
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;
-    
+
     const chunk = decoder.decode(value);
-    const lines = chunk.split('\n');
-    
+    const lines = chunk.split("\n");
+
     for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        if (line.includes('[DONE]')) break;
+      if (line.startsWith("data: ")) {
+        if (line.includes("[DONE]")) break;
         const data = JSON.parse(line.slice(6));
         console.log(data.choices[0].delta.content);
       }
@@ -125,8 +125,44 @@ async function streamChatCompletion(model, messages) {
 }
 
 // Usage
-const messages = [{ role: 'user', content: 'Tell me a joke' }];
-streamChatCompletion('default', messages);
+const messages = [{ role: "user", content: "Tell me a joke" }];
+streamChatCompletion("default", messages);
 ```
 
 These examples demonstrate how to consume the streaming API from both Python and JavaScript clients. Adjust the URL and API key as needed for your specific deployment.
+
+## GraphQL
+
+### Example Query
+
+```graphql
+query {
+  todos {
+    id
+    title
+    completed
+    createdAt
+  }
+}
+```
+
+### Example Mutation
+
+```graphql
+mutation {
+  createTodo(title: "Test Todo") {
+    id
+    title
+    completed
+    createdAt
+  }
+}
+```
+
+### updating database with prisma
+
+```
+pip install prisma
+prisma generate
+prisma migrate dev --name init
+```

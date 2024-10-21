@@ -2,43 +2,45 @@ name: CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.12'
-    - name: Install dependencies
-      run: |
-        pip install poetry
-        poetry install
-    - name: Lint with flake8
-      run: poetry run flake8 .
-    - name: Format check with black
-      run: poetry run black --check .
-    - name: Type check with mypy
-      run: poetry run mypy .
-    - name: Run tests
-      run: poetry run pytest --cov=src
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          pip install poetry
+          poetry install
+      - name: Lint with flake8
+        run: poetry run flake8 .
+      - name: Format check with black
+        run: poetry run black --check .
+      - name: Type check with mypy
+        run: poetry run mypy .
+      - name: Run tests
+        run: poetry run pytest --cov=src
+      - name: Run Pyright
+        run: poetry run pyright
 
   build-and-push:
     needs: test
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
-    - uses: actions/checkout@v2
-    - name: Build and push Docker image
-      env:
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      run: |
-        docker build -t yourusername/api:latest .
-        echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
-        docker push yourusername/api:latest
+      - uses: actions/checkout@v2
+      - name: Build and push Docker image
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          docker build -t yourusername/api:latest .
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+          docker push yourusername/api:latest

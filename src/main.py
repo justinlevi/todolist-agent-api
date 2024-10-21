@@ -1,4 +1,8 @@
 from fastapi import FastAPI, Request
+from strawberry.fastapi import GraphQLRouter
+from src.graphql.schema import schema
+from prisma import Prisma
+from prisma.errors import PrismaError
 from fastapi.middleware.cors import CORSMiddleware
 
 # from fastapi.middleware.gzip import GZipMiddleware
@@ -47,8 +51,24 @@ app.add_middleware(
 
 logger = get_logger()
 
+graphql_app = GraphQLRouter(schema)
+app.include_router(graphql_app, prefix="/graphql")
+
 app.include_router(models.router, tags=["Models"])
 app.include_router(chat.router, tags=["Chat"])
+
+
+async def init_db():
+    async with Prisma() as db:
+        try:
+            await db.connect()
+        except PrismaError as e:
+            if "Already connected" in str(e):
+                # Connection already exists, so we can proceed
+                pass
+            else:
+                # Re-raise the exception if it's not the "Already connected" error
+                raise
 
 
 @app.get("/")
@@ -59,11 +79,14 @@ async def root(request: Request):
 
 @app.on_event("startup")
 async def startup_event():
+    await init_db()
     logger.info("Application startup")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    async with Prisma() as db:
+        await db.disconnect()
     logger.info("Application shutdown")
 
 
