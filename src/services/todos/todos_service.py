@@ -1,12 +1,48 @@
+import logging
 from typing import List, Optional
 from datetime import datetime
 from prisma import Prisma
 from src.models.todo import Todo, TodoCreate, TodoUpdate
 
 
+logger = logging.getLogger(__name__)
+
+
+class TodoNotFoundError(Exception):
+    pass
+
+
+class TodoCreationError(Exception):
+    pass
+
+
+class TodoUpdateError(Exception):
+    pass
+
+
+class TodoDeletionError(Exception):
+    pass
+
+
 class TodosService:
+    def __init__(self, db: Prisma):
+        self.db = db
+
     @staticmethod
-    async def get_todos() -> List[Todo]:
+    def _prisma_todo_to_model(todo):
+        return Todo(
+            id=todo.id,
+            title=todo.title,
+            completed=todo.completed,
+            createdAt=todo.createdAt,
+            dueDate=todo.dueDate,
+            weight=todo.weight,
+            parentId=todo.parentId,
+            children=[child.id for child in (todo.children or [])],
+            tags=todo.tags.split(",") if todo.tags else [],
+        )
+
+    async def get_todos(self) -> List[Todo]:
         """
         Retrieve all todos from the database.
 
@@ -19,27 +55,13 @@ class TodosService:
             Exception: If there's an error while fetching the todos from the database.
         """
         try:
-            async with Prisma() as db:
-                todos = await db.todo.find_many(include={"children": True})
-                return [
-                    Todo(
-                        id=todo.id,
-                        title=todo.title,
-                        completed=todo.completed,
-                        created_at=todo.createdAt,
-                        due_date=todo.dueDate,
-                        weight=todo.weight,
-                        parent_id=todo.parentId,
-                        children=[child.id for child in todo.children],
-                        tags=todo.tags.split(",") if todo.tags else [],
-                    )
-                    for todo in todos
-                ]
+            todos = await self.db.todo.find_many(include={"children": True})
+            return [self._prisma_todo_to_model(todo) for todo in todos]
         except Exception as e:
+            logger.error(f"Failed to fetch todos: {str(e)}")
             raise Exception(f"Failed to fetch todos: {str(e)}")
 
-    @staticmethod
-    async def create_todo(todo_data: TodoCreate) -> Todo:
+    async def create_todo(self, todo_data: TodoCreate) -> Todo:
         """
         Create a new todo item in the database.
 
@@ -54,33 +76,34 @@ class TodosService:
         Raises:
             Exception: If there's an error while creating the todo in the database.
         """
+        logger.info(f"Creating new todo: {todo_data}")
         try:
-            async with Prisma() as db:
-                todo = await db.todo.create(
-                    data={
-                        "title": todo_data.title,
-                        "dueDate": todo_data.dueDate,
-                        "weight": todo_data.weight,
-                        "parentId": todo_data.parentId,
-                        "tags": ",".join(todo_data.tags),
-                    }
-                )
-                return Todo(
-                    id=todo.id,
-                    title=todo.title,
-                    completed=todo.completed,
-                    created_at=todo.createdAt,
-                    due_date=todo.dueDate,
-                    weight=todo.weight,
-                    parent_id=todo.parentId,
-                    children=[],
-                    tags=todo_data.tags,
-                )
+            todo = await self.db.todo.create(
+                data={
+                    "title": todo_data.title,
+                    "dueDate": todo_data.dueDate,
+                    "weight": todo_data.weight,
+                    "parentId": todo_data.parentId,
+                    "tags": ",".join(todo_data.tags),
+                }
+            )
+            logger.info(f"Successfully created todo with id: {todo.id}")
+            return Todo(
+                id=todo.id,
+                title=todo.title,
+                completed=todo.completed,
+                createdAt=todo.createdAt,
+                dueDate=todo.dueDate,
+                weight=todo.weight,
+                parentId=todo.parentId,
+                children=[],
+                tags=todo_data.tags,
+            )
         except Exception as e:
-            raise Exception(f"Failed to create todo: {str(e)}")
+            logger.error(f"Failed to create todo: {str(e)}")
+            raise TodoCreationError(f"Failed to create todo: {str(e)}")
 
-    @staticmethod
-    async def toggle_todo(id: int) -> Todo:
+    async def toggle_todo(self, id: int) -> Todo:
         """
         Toggle the completion status of a todo item.
 
@@ -96,35 +119,24 @@ class TodosService:
             Exception: If the todo item is not found or if there's an error while updating the todo in the database.
         """
         try:
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(
-                    where={"id": id}, include={"children": True}
-                )
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
-                updated_todo = await db.todo.update(
-                    where={"id": id},
-                    data={"completed": not todo.completed},
-                    include={"children": True},
-                )
-                if updated_todo is None:
-                    raise Exception(f"Failed to update todo with id {id}")
-                return Todo(
-                    id=updated_todo.id,
-                    title=updated_todo.title,
-                    completed=updated_todo.completed,
-                    created_at=updated_todo.createdAt,
-                    due_date=updated_todo.dueDate,
-                    weight=updated_todo.weight,
-                    parent_id=updated_todo.parentId,
-                    children=[child.id for child in updated_todo.children],
-                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
-                )
+            todo = await self.db.todo.find_unique(
+                where={"id": id}, include={"children": True}
+            )
+            if todo is None:
+                raise TodoNotFoundError(f"Todo with id {id} not found")
+            updated_todo = await self.db.todo.update(
+                where={"id": id},
+                data={"completed": not todo.completed},
+                include={"children": True},
+            )
+            if updated_todo is None:
+                raise TodoUpdateError(f"Failed to update todo with id {id}")
+            return self._prisma_todo_to_model(updated_todo)
         except Exception as e:
+            logger.error(f"Failed to toggle todo: {str(e)}")
             raise Exception(f"Failed to toggle todo: {str(e)}")
 
-    @staticmethod
-    async def delete_todo(id: int) -> bool:
+    async def delete_todo(self, id: int) -> bool:
         """
         Delete a todo item from the database.
 
@@ -140,21 +152,20 @@ class TodosService:
             Exception: If the todo item is not found or if there's an error while deleting the todo from the database.
         """
         try:
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(where={"id": id})
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
+            todo = await self.db.todo.find_unique(where={"id": id})
+            if todo is None:
+                raise TodoNotFoundError(f"Todo with id {id} not found")
 
-                deleted_todo = await db.todo.delete(where={"id": id})
-                if deleted_todo is None:
-                    raise Exception(f"Failed to delete todo with id {id}")
+            deleted_todo = await self.db.todo.delete(where={"id": id})
+            if deleted_todo is None:
+                raise TodoDeletionError(f"Failed to delete todo with id {id}")
 
-                return True
+            return True
         except Exception as e:
+            logger.error(f"Failed to delete todo: {str(e)}")
             raise Exception(f"Failed to delete todo: {str(e)}")
 
-    @staticmethod
-    async def update_todo(id: int, todo_data: TodoUpdate) -> Todo:
+    async def update_todo(self, id: int, todo_data: TodoUpdate) -> Todo:
         """
         Update a todo item in the database.
 
@@ -171,33 +182,23 @@ class TodosService:
             Exception: If the todo item is not found or if there's an error while updating the todo in the database.
         """
         try:
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(where={"id": id})
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
+            todo = await self.db.todo.find_unique(where={"id": id})
+            if todo is None:
+                raise TodoNotFoundError(f"Todo with id {id} not found")
 
-                update_data = {
-                    k: v for k, v in todo_data.dict().items() if v is not None
-                }
-                if "tags" in update_data:
-                    update_data["tags"] = ",".join(update_data["tags"])
+            update_data = {
+                k: v for k, v in todo_data.model_dump().items() if v is not None
+            }
+            if "tags" in update_data:
+                update_data["tags"] = ",".join(update_data["tags"])
 
-                updated_todo = await db.todo.update(
-                    where={"id": id},
-                    data=update_data,
-                    include={"children": True},
-                )
+            updated_todo = await self.db.todo.update(
+                where={"id": id},
+                data=update_data,
+                include={"children": True},
+            )
 
-                return Todo(
-                    id=updated_todo.id,
-                    title=updated_todo.title,
-                    completed=updated_todo.completed,
-                    created_at=updated_todo.createdAt,
-                    due_date=updated_todo.dueDate,
-                    weight=updated_todo.weight,
-                    parent_id=updated_todo.parentId,
-                    children=[child.id for child in updated_todo.children],
-                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
-                )
+            return self._prisma_todo_to_model(updated_todo)
         except Exception as e:
+            logger.error(f"Failed to update todo: {str(e)}")
             raise Exception(f"Failed to update todo: {str(e)}")

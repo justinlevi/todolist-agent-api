@@ -18,6 +18,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.openapi.utils import get_openapi
 from src.utils.helpers import get_current_timestamp
+from src.graphql.context import GraphQLContext, get_context
 
 
 # limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
@@ -34,7 +35,7 @@ app = FastAPI(
 # ALLOWED_ORIGINS is used to specify which origins can access your API from a browser.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],  # settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -51,7 +52,11 @@ app.add_middleware(
 
 logger = get_logger()
 
-graphql_app = GraphQLRouter(schema)
+
+graphql_app = GraphQLRouter(
+    schema,
+    context_getter=get_context,
+)
 app.include_router(graphql_app, prefix="/graphql")
 
 app.include_router(models.router, tags=["Models"])

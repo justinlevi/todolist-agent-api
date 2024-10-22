@@ -14,7 +14,7 @@ class AssistantService:
 
         self.agent = Agent(
             model=OpenAIChat(id="gpt-4o-mini"),
-            markdown=True,
+            # markdown=True,
             debug_mode=True,
             telemetry=False,
             tools=[
@@ -65,6 +65,7 @@ class AssistantService:
                 "If a requested action is not directly supported by the tools, explain the limitation to the user and suggest alternative approaches.",
                 "When in doubt about a user's intention, ask for clarification before performing any actions.",
                 "Maintain context throughout the conversation and refer back to previous interactions when relevant.",
+                "Remember this is a voice assistant, so use natural language and be concise, just provide titles of the todos unless otherwise asked for specifics.",
                 # "Always display the todo list hierarchically, with children todos indented under their parent todos.",
             ],
             prevent_hallucinations=True,

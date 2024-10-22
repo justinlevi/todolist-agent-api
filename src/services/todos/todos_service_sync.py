@@ -6,7 +6,6 @@ from sqlalchemy import (
     Integer,
     String,
     Boolean,
-    DateTime,
     ForeignKey,
 )
 from sqlalchemy.orm import (
@@ -98,6 +97,7 @@ class TodosServiceSync(Toolkit):
     def create_todo(
         self,
         title: str,
+        completed: bool = False,
         due_date: Optional[str] = None,
         weight: int = 1,
         parent_id: Optional[int] = None,
@@ -121,6 +121,7 @@ class TodosServiceSync(Toolkit):
             with Session(self.engine) as session:
                 new_todo = Todo(
                     title=title,
+                    completed=completed,
                     createdAt=int(datetime.now().timestamp() * 1000),
                     dueDate=(
                         int(datetime.fromisoformat(due_date).timestamp() * 1000)
@@ -144,6 +145,7 @@ class TodosServiceSync(Toolkit):
         self,
         id: int,
         title: Optional[str] = None,
+        completed: Optional[bool] = None,
         due_date: Optional[str] = None,
         weight: Optional[int] = None,
         parent_id: Optional[int] = None,
@@ -173,6 +175,8 @@ class TodosServiceSync(Toolkit):
 
                 if title is not None:
                     todo.title = title
+                if completed is not None:
+                    todo.completed = completed
                 if due_date is not None:
                     todo.dueDate = int(
                         datetime.fromisoformat(due_date).timestamp() * 1000
@@ -183,7 +187,6 @@ class TodosServiceSync(Toolkit):
                     todo.parentId = parent_id
                 if tags is not None:
                     todo.tags = tags
-
                 session.commit()
                 session.refresh(todo)
                 logger.info(f"Successfully updated todo with ID: {id}")

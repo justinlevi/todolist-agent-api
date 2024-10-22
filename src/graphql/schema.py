@@ -3,7 +3,9 @@ from strawberry.types import Info
 from typing import List, Optional
 from datetime import datetime
 from prisma import Prisma
-from src.models.todo import TodoCreate, TodoUpdate
+from src.models.todo import TodoCreate, TodoUpdate, Todo as TodoModel
+from src.services.todos.todos_service import TodosService
+from src.graphql.context import GraphQLContext
 
 
 @strawberry.type
@@ -18,6 +20,43 @@ class Todo:
     children: List[int]
     tags: List[str]
 
+    @classmethod
+    def from_pydantic(cls, todo: TodoModel):
+        return cls(
+            id=todo.id,
+            title=todo.title,
+            completed=todo.completed,
+            created_at=todo.createdAt,
+            due_date=todo.dueDate,
+            weight=todo.weight,
+            parent_id=todo.parentId,
+            children=todo.children,
+            tags=todo.tags,
+        )
+
+
+@strawberry.input
+class CreateTodoInput:
+    title: str
+    completed: bool = False
+    due_date: Optional[datetime] = None
+    weight: int = 1
+    parent_id: Optional[int] = None
+    children: List[int] = strawberry.field(default_factory=list)
+    tags: List[str] = strawberry.field(default_factory=list)
+
+
+@strawberry.input
+class UpdateTodoInput:
+    id: int
+    title: Optional[str] = None
+    completed: Optional[bool] = None
+    due_date: Optional[datetime] = None
+    weight: Optional[int] = None
+    parent_id: Optional[int] = None
+    children: Optional[List[int]] = None
+    tags: Optional[List[str]] = None
+
 
 @strawberry.type
 class Query:
@@ -26,162 +65,78 @@ class Query:
         return "Hello World"
 
     @strawberry.field
-    async def todos(self) -> List[Todo]:
-        async with Prisma() as db:
-            todos = await db.todo.find_many(include={"children": True})
-            return [
-                Todo(
-                    id=todo.id,
-                    title=todo.title,
-                    completed=todo.completed,
-                    created_at=todo.createdAt,
-                    due_date=todo.dueDate,
-                    weight=todo.weight,
-                    parent_id=todo.parentId,
-                    children=[child.id for child in todo.children],
-                    tags=todo.tags.split(",") if todo.tags else [],
-                )
-                for todo in todos
-            ]
+    async def todos(self, info: Info[GraphQLContext, None]) -> List[Todo]:
+        try:
+            todos = await info.context.todos_service.get_todos()
+            return [Todo.from_pydantic(todo) for todo in todos]
+        except Exception as e:
+            raise Exception(f"Failed to fetch todos: {str(e)}")
 
 
 @strawberry.type
 class Mutation:
     @strawberry.mutation
     async def create_todo(
-        self,
-        title: str,
-        due_date: Optional[datetime] = None,
-        weight: int = 1,
-        parent_id: Optional[int] = None,
-        tags: List[str] = [],
+        self, info: Info[GraphQLContext, None], data: CreateTodoInput
     ) -> Todo:
         try:
             todo_data = TodoCreate(
-                title=title,
-                dueDate=due_date,
-                weight=weight,
-                parentId=parent_id,
-                tags=tags,
+                title=data.title,
+                completed=data.completed,
+                dueDate=data.due_date,
+                weight=data.weight,
+                parentId=data.parent_id,
+                children=data.children,
+                tags=data.tags,
             )
-            async with Prisma() as db:
-                todo = await db.todo.create(
-                    data={
-                        "title": todo_data.title,
-                        "dueDate": todo_data.dueDate,
-                        "weight": todo_data.weight,
-                        "parentId": todo_data.parentId,
-                        "tags": ",".join(todo_data.tags),
-                    }
-                )
-                return Todo(
-                    id=todo.id,
-                    title=todo.title,
-                    completed=todo.completed,
-                    created_at=todo.createdAt,
-                    due_date=todo.dueDate,
-                    weight=todo.weight,
-                    parent_id=todo.parentId,
-                    children=[],
-                    tags=todo_data.tags,
-                )
+            created_todo = await info.context.todos_service.create_todo(todo_data)
+            return Todo.from_pydantic(created_todo)
         except Exception as e:
             raise Exception(f"Failed to create todo: {str(e)}")
 
     @strawberry.mutation
-    async def toggle_todo(self, id: int) -> Todo:
+    async def toggle_todo(self, info: Info[GraphQLContext, None], id: int) -> Todo:
         try:
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(
-                    where={"id": id}, include={"children": True}
-                )
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
-                updated_todo = await db.todo.update(
-                    where={"id": id},
-                    data={"completed": not todo.completed},
-                    include={"children": True},
-                )
-                if updated_todo is None:
-                    raise Exception(f"Failed to update todo with id {id}")
-                return Todo(
-                    id=updated_todo.id,
-                    title=updated_todo.title,
-                    completed=updated_todo.completed,
-                    created_at=updated_todo.createdAt,
-                    due_date=updated_todo.dueDate,
-                    weight=updated_todo.weight,
-                    parent_id=updated_todo.parentId,
-                    children=[child.id for child in updated_todo.children],
-                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
-                )
+            toggled_todo = await info.context.todos_service.toggle_todo(id)
+            return Todo.from_pydantic(toggled_todo)
         except Exception as e:
             raise Exception(f"Failed to toggle todo: {str(e)}")
 
     @strawberry.mutation
-    async def delete_todo(self, id: int) -> bool:
-        try:
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(where={"id": id})
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
-
-                deleted_todo = await db.todo.delete(where={"id": id})
-                if deleted_todo is None:
-                    raise Exception(f"Failed to delete todo with id {id}")
-
-                return True
-        except Exception as e:
-            raise Exception(f"Failed to delete todo: {str(e)}")
-
-    @strawberry.mutation
     async def update_todo(
-        self,
-        id: int,
-        title: Optional[str] = None,
-        due_date: Optional[datetime] = None,
-        weight: Optional[int] = None,
-        parent_id: Optional[int] = None,
-        tags: Optional[List[str]] = None,
+        self, info: Info[GraphQLContext, None], data: UpdateTodoInput
     ) -> Todo:
         try:
             todo_data = TodoUpdate(
-                title=title,
-                dueDate=due_date,
-                weight=weight,
-                parentId=parent_id,
-                tags=tags,
+                title=data.title,
+                completed=data.completed,
+                dueDate=data.due_date,
+                weight=data.weight,
+                parentId=data.parent_id,
+                children=data.children,
+                tags=data.tags,
             )
-            async with Prisma() as db:
-                todo = await db.todo.find_unique(where={"id": id})
-                if todo is None:
-                    raise Exception(f"Todo with id {id} not found")
-
-                update_data = {
-                    k: v for k, v in todo_data.dict().items() if v is not None
-                }
-                if "tags" in update_data:
-                    update_data["tags"] = ",".join(update_data["tags"])
-
-                updated_todo = await db.todo.update(
-                    where={"id": id},
-                    data=update_data,
-                    include={"children": True},
-                )
-
-                return Todo(
-                    id=updated_todo.id,
-                    title=updated_todo.title,
-                    completed=updated_todo.completed,
-                    created_at=updated_todo.createdAt,
-                    due_date=updated_todo.dueDate,
-                    weight=updated_todo.weight,
-                    parent_id=updated_todo.parentId,
-                    children=[child.id for child in updated_todo.children],
-                    tags=updated_todo.tags.split(",") if updated_todo.tags else [],
-                )
+            updated_todo = await info.context.todos_service.update_todo(
+                data.id, todo_data
+            )
+            return Todo.from_pydantic(updated_todo)
         except Exception as e:
             raise Exception(f"Failed to update todo: {str(e)}")
 
+    @strawberry.mutation
+    async def delete_todo(self, info: Info[GraphQLContext, None], id: int) -> bool:
+        try:
+            await info.context.todos_service.delete_todo(id)
+            return True
+        except Exception as e:
+            raise Exception(f"Failed to delete todo: {str(e)}")
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    extensions=[
+        # Add an extension to inject the TodosService into the context
+        # This will depend on how you're setting up your GraphQL server
+    ],
+)
